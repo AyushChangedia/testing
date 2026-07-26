@@ -35,10 +35,10 @@ jobs:
       - name: Resolve Pages base path
         id: pages
         uses: actions/configure-pages@v5
-        with:
-          # Turns Pages on for the repo if it isn't already, so no manual
-          # Settings visit is needed. Idempotent once enabled.
-          enablement: true
+        # Deliberately no `enablement: true`. Pages is already switched on, and
+        # that flag makes the step write Pages config on every run — an API call
+        # the workflow's GITHUB_TOKEN has no admin scope for, which failed the
+        # build on runs #1-#3. Reading the config needs no extra permission.
 
       - name: Build static export
         env:

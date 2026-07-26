@@ -2,12 +2,41 @@
 
 A dark-luxury café and roastery site: a 3D hero, scroll-driven storytelling, a full ordering flow, and an operations dashboard.
 
+**Live URL (once Pages is switched on):** https://ayushchangedia.github.io/testing/
+
 ```bash
 npm install
 npm run dev      # http://localhost:3000
 npm run build    # production build
 npm run typecheck
 ```
+
+## Deployment
+
+Pushing to the default branch runs `.github/workflows/deploy.yml`, which
+static-exports the site and publishes it to GitHub Pages.
+
+**One-time setup:** open **Settings → Pages** and set **Source: GitHub Actions**.
+The workflow asks for Pages to be created automatically, but the run's
+`GITHUB_TOKEN` isn't granted the admin scope that API call needs, so the first
+deploy fails at `configure-pages` until the switch is flipped by hand. After
+that every push deploys on its own.
+
+Pages serves from a repo subdirectory, so the build reads its prefix from
+`actions/configure-pages`:
+
+```bash
+STATIC_EXPORT=true NEXT_PUBLIC_BASE_PATH=/testing npm run build   # → out/
+```
+
+Both variables are opt-in; unset, `npm run dev` and `next start` behave normally.
+
+A static export has no Node server, so Next's image optimiser is off and photos
+are fetched straight from Unsplash's CDN at the width and quality the data files
+request — nothing is proxied, resized, or re-encoded.
+
+To host on Vercel instead, import the repo and deploy with no configuration; the
+`STATIC_EXPORT` path simply goes unused and image optimisation switches back on.
 
 ## Stack
 

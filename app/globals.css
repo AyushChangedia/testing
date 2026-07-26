@@ -1,0 +1,475 @@
+@import "tailwindcss";
+
+/* ============================================================
+   NOIR CAFÉ — DESIGN TOKENS
+   Three-layer architecture: primitive → semantic → component
+   ============================================================ */
+
+@theme {
+  /* --- Primitive: Noir (deep blacks) --- */
+  --color-noir-950: #050403;
+  --color-noir-900: #0a0807;
+  --color-noir-850: #0f0c0a;
+  --color-noir-800: #14100d;
+  --color-noir-700: #1c1611;
+  --color-noir-600: #271e18;
+
+  /* --- Primitive: Coffee (browns) --- */
+  --color-espresso: #2a1d16;
+  --color-coffee: #432f23;
+  --color-mocha: #6f4e37;
+  --color-caramel: #a9744f;
+  --color-latte: #c9a583;
+
+  /* --- Primitive: Gold (warm accent) --- */
+  --color-gold-300: #f0dda6;
+  --color-gold-400: #e3c77b;
+  --color-gold-500: #d4af37;
+  --color-gold-600: #b8912b;
+  --color-gold-700: #8f6f1f;
+
+  /* --- Primitive: Cream --- */
+  --color-cream-50: #fdfaf5;
+  --color-cream-100: #f5ede0;
+  --color-cream-200: #e6d9c6;
+  --color-cream-300: #d9cdbb;
+  --color-cream-400: #b3a794;
+
+  /* --- Feedback --- */
+  --color-success: #4ade80;
+  --color-danger: #f0603c;
+  --color-veg: #3fa34d;
+  --color-nonveg: #b3341f;
+
+  /* --- Type scale (fluid, clamp-based) --- */
+  --text-display: clamp(3.2rem, 12vw, 13rem);
+  --text-display--line-height: 0.86;
+  --text-display--letter-spacing: -0.04em;
+  --text-hero: clamp(2.6rem, 8vw, 7.5rem);
+  /* Serif descenders need room: any tighter and the reveal mask clips them. */
+  --text-hero--line-height: 1.04;
+  --text-hero--letter-spacing: -0.03em;
+  --text-title: clamp(2rem, 5vw, 4rem);
+  --text-title--line-height: 1.02;
+  --text-title--letter-spacing: -0.02em;
+  --text-subtitle: clamp(1.25rem, 2.4vw, 1.85rem);
+  --text-subtitle--line-height: 1.3;
+
+  /* --- Motion tokens (unified rhythm) --- */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* --- Radius --- */
+  --radius-card: 1.5rem;
+  --radius-pill: 999px;
+
+  /* --- Fonts (bound in layout.tsx via next/font) --- */
+  --font-display: var(--font-bodoni), "Bodoni Moda", serif;
+  --font-body: var(--font-jost), "Jost", system-ui, sans-serif;
+}
+
+/* ------------------------------------------------------------
+   Semantic tokens — runtime themeable (dark default, light opt-in)
+   ------------------------------------------------------------ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #050403;
+  --bg-elevated: #0a0807;
+  --surface: rgb(255 255 255 / 0.038);
+  --surface-hover: rgb(255 255 255 / 0.07);
+  --fg: #f5ede0;
+  --fg-muted: #b3a794;
+  --fg-subtle: #7d7266;
+  --line: rgb(245 237 224 / 0.1);
+  --line-strong: rgb(245 237 224 / 0.2);
+  --accent: #d4af37;
+  --accent-fg: #050403;
+  --scrim: rgb(5 4 3 / 0.72);
+}
+
+html.light {
+  color-scheme: light;
+  --bg: #f7f3ec;
+  --bg-elevated: #fdfaf5;
+  --surface: rgb(42 29 22 / 0.045);
+  --surface-hover: rgb(42 29 22 / 0.08);
+  --fg: #1a120c;
+  --fg-muted: #574638;
+  --fg-subtle: #7d6b5b;
+  --line: rgb(42 29 22 / 0.14);
+  --line-strong: rgb(42 29 22 / 0.28);
+  /* Darkened from #d4af37 to clear 4.5:1 on cream backgrounds */
+  --accent: #8f6f1f;
+  --accent-fg: #fdfaf5;
+  --scrim: rgb(26 18 12 / 0.55);
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+
+* {
+  border-color: var(--line);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+/* Lenis drives scroll; native smooth would fight it */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+/* Focus: never remove, always visible (WCAG 2.4.7) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-mocha), var(--color-espresso));
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Hide native cursor only on precision pointers where we draw our own */
+@media (pointer: fine) {
+  html.custom-cursor,
+  html.custom-cursor * {
+    cursor: none !important;
+  }
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+
+@utility glass {
+  background: var(--surface);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--line);
+}
+
+@utility glass-strong {
+  background: color-mix(in oklab, var(--bg-elevated) 72%, transparent);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid var(--line);
+}
+
+/* Gradient text — falls back to solid accent if unsupported */
+@utility text-gradient-gold {
+  background: linear-gradient(
+    100deg,
+    var(--color-gold-300) 0%,
+    var(--color-gold-500) 32%,
+    var(--color-latte) 55%,
+    var(--color-gold-400) 78%,
+    var(--color-gold-600) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/*
+  Vertical variant for per-character animated type. `background-clip: text` on a
+  wrapper cannot clip to text inside inline-block descendants, so SplitText has
+  to paint the gradient on each glyph — and a vertical ramp tiles seamlessly
+  across letters, reading as one continuous gradient.
+*/
+@utility text-gradient-gold-v {
+  background: linear-gradient(
+    180deg,
+    var(--color-gold-300) 0%,
+    var(--color-gold-500) 42%,
+    var(--color-gold-600) 72%,
+    var(--color-gold-700) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+@utility text-gradient-cream {
+  background: linear-gradient(180deg, var(--fg) 30%, color-mix(in oklab, var(--fg) 35%, transparent) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Animated gradient border via mask compositing */
+@utility gradient-border {
+  position: relative;
+}
+
+@utility noise {
+  position: relative;
+  isolation: isolate;
+}
+
+@utility hairline {
+  border-width: 1px;
+  border-color: var(--line);
+}
+
+/* Section rhythm — generous luxury spacing */
+@utility section-y {
+  padding-block: clamp(5rem, 12vw, 11rem);
+}
+
+@utility container-x {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 88rem;
+  padding-inline: clamp(1.25rem, 4vw, 3.5rem);
+}
+
+/* Tabular figures for prices/timers — prevents layout shift */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ============================================================
+   COMPONENT PRIMITIVES
+   ============================================================ */
+
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 8s steps(10) infinite;
+}
+
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-5%, -10%); }
+  20% { transform: translate(-15%, 5%); }
+  30% { transform: translate(7%, -25%); }
+  40% { transform: translate(-5%, 25%); }
+  50% { transform: translate(-15%, 10%); }
+  60% { transform: translate(15%, 0%); }
+  70% { transform: translate(0%, 15%); }
+  80% { transform: translate(3%, 35%); }
+  90% { transform: translate(-10%, 10%); }
+}
+
+/* Gradient border card */
+.grad-border {
+  position: relative;
+  border-radius: var(--radius-card);
+}
+.grad-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    color-mix(in oklab, var(--accent) 55%, transparent),
+    transparent 35%,
+    transparent 65%,
+    color-mix(in oklab, var(--color-caramel) 40%, transparent)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.55;
+  transition: opacity 300ms var(--ease-out-quint);
+  pointer-events: none;
+}
+.grad-border:hover::before {
+  opacity: 1;
+}
+
+/* Spotlight that follows pointer (driven by --mx/--my from JS) */
+.spotlight::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 400ms var(--ease-out-quint);
+  background: radial-gradient(
+    340px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in oklab, var(--accent) 18%, transparent),
+    transparent 62%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+.spotlight:hover::after {
+  opacity: 1;
+}
+
+/* Marquee */
+@keyframes marquee-x {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+.marquee-track {
+  animation: marquee-x var(--marquee-duration, 40s) linear infinite;
+  will-change: transform;
+}
+.marquee-host:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+/* Steam */
+@keyframes steam-rise {
+  0% { opacity: 0; transform: translateY(0) scaleX(1); }
+  15% { opacity: var(--steam-peak, 0.5); }
+  100% { opacity: 0; transform: translateY(-130px) scaleX(2.4); }
+}
+
+/* Shimmer for skeletons */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--surface-hover), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+/* Button sheen — pseudo-element so `asChild` slots keep a single DOM child */
+.btn-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.22), transparent);
+  transition: transform 700ms var(--ease-out-quint);
+  pointer-events: none;
+}
+.btn-sheen:hover::before {
+  transform: translateX(100%);
+}
+
+/* Underline that wipes in from left */
+.link-underline {
+  position: relative;
+}
+.link-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 1px;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 420ms var(--ease-out-expo);
+}
+.link-underline:hover::after,
+.link-underline[data-active="true"]::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* Horizontal scroll section needs its own containment */
+.h-scroll-viewport {
+  overflow: hidden;
+}
+
+/* ============================================================
+   REDUCED MOTION — respect the OS setting everywhere
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .grain::after,
+  .marquee-track {
+    animation: none !important;
+  }
+  html.custom-cursor,
+  html.custom-cursor * {
+    cursor: auto !important;
+  }
+}

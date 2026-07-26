@@ -1,3 +1,36 @@
 # UI/UX Pro Max skills — vendored third-party files, reinstall with:
 #   npx -y ui-ux-pro-max-cli init --ai claude
 .claude/skills/
+
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# typescript
+*.tsbuildinfo
+
+# misc
+.DS_Store
+*.pem
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env
+.env
+.env*.local
+
+# vercel
+.vercel

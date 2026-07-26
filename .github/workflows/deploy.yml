@@ -51,6 +51,33 @@ jobs:
         # Without this, Pages' Jekyll pass strips the _next/ directory.
         run: touch out/.nojekyll
 
+      - name: Verify the export before publishing
+        # A broken artifact must never replace a working site. If any of these
+        # fail the job stops here and Pages keeps serving the last good deploy.
+        env:
+          BASE: ${{ steps.pages.outputs.base_path }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          for route in "" menu booking checkout admin; do
+            f="out/${route:+$route/}index.html"
+            [ -s "$f" ] || fail "missing or empty $f"
+          done
+          [ -f out/.nojekyll ] || fail "out/.nojekyll missing — Pages would strip _next/"
+          [ -d out/_next/static ] || fail "out/_next/static missing"
+
+          # The homepage must reference its CSS/JS through the Pages prefix,
+          # otherwise every asset 404s and the site renders unstyled.
+          grep -q "${BASE}/_next/static" out/index.html \
+            || fail "assets not prefixed with '${BASE}' — check NEXT_PUBLIC_BASE_PATH"
+
+          # Guards the gradient-on-inline-block bug that once rendered every
+          # heading invisible: the headline text must be present in the markup.
+          grep -q "Every Cup" out/index.html || fail "hero headline missing from out/index.html"
+
+          echo "export verified — $(find out -name '*.html' | wc -l) pages, $(du -sh out | cut -f1)"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
@@ -64,3 +91,56 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Smoke-test the live site
+        # deploy-pages reporting success only means the artifact was accepted —
+        # it does not prove the URL serves. This fetches every route from the
+        # public URL and fails the run if any of them doesn't, so a broken
+        # deploy shows up as a red build instead of being found by a visitor.
+        env:
+          URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -uo pipefail
+          base="${URL%/}"
+          echo "Verifying $base"
+          failed=0
+
+          for route in "" menu booking checkout admin; do
+            target="$base/${route:+$route/}"
+            code=""
+            # Retry: a fresh deploy can take a moment to reach every CDN edge.
+            for attempt in 1 2 3 4 5 6 7 8; do
+              code=$(curl -sSL -o /tmp/page.html -w '%{http_code}' --max-time 30 "$target" || echo 000)
+              [ "$code" = "200" ] && break
+              echo "  attempt $attempt: $code — retrying in 15s"
+              sleep 15
+            done
+
+            if [ "$code" != "200" ]; then
+              echo "::error::$target returned $code"
+              failed=1
+              continue
+            fi
+
+            if [ -z "$route" ] && ! grep -q "Every Cup" /tmp/page.html; then
+              echo "::error::$target returned 200 but the hero headline is missing"
+              failed=1
+              continue
+            fi
+
+            echo "  ok  $target"
+          done
+
+          [ "$failed" -eq 0 ] || exit 1
+          echo "All routes live and serving."
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Noir Café deployment"
+            echo ""
+            echo "- URL: ${{ steps.deployment.outputs.page_url }}"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Smoke test: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

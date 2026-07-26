@@ -35,6 +35,10 @@ jobs:
       - name: Resolve Pages base path
         id: pages
         uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on for the repo if it isn't already, so no manual
+          # Settings visit is needed. Idempotent once enabled.
+          enablement: true
 
       - name: Build static export
         env:

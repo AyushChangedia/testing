@@ -19,7 +19,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Runs first and gates everything below it. A failing unit test should never
+  # reach the point of replacing a working site, and catching it here costs
+  # seconds rather than a full build and deploy cycle.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

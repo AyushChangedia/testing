@@ -30,8 +30,12 @@ export function formatPrice(value: number) {
 }
 
 export function formatPriceExact(value: number) {
-  const whole = Math.floor(Math.abs(value));
-  const paise = Math.round((Math.abs(value) - whole) * 100);
+  // Round to whole paise first, then split. Flooring the rupees before
+  // rounding the remainder let the paise round up to 100 and be padded as a
+  // third digit: 1.999 printed as ₹1.100 rather than ₹2.00.
+  const paiseTotal = Math.round(Math.abs(value) * 100);
+  const whole = Math.floor(paiseTotal / 100);
+  const paise = paiseTotal % 100;
   return `${value < 0 ? "-" : ""}₹${groupIndian(whole)}.${String(paise).padStart(2, "0")}`;
 }
 

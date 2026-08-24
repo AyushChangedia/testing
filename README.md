@@ -47,7 +47,7 @@ Next.js 16 (App Router, Turbopack) · React 19 · TypeScript (strict) · Tailwin
 | Route | What's there |
 |---|---|
 | `/` | Loader, 3D hero, story timeline, pinned horizontal rail, origin map, offers, chefs, gallery, reviews, loyalty, events |
-| `/menu` | All 45 items — fuzzy search, category pills, diet filters, price range, sort, compare tray, wishlist, recently viewed |
+| `/menu` | All 45 items — fuzzy search , category pills, diet filters, price range, sort, compare tray, wishlist , recently viewed |
 | `/booking` | Calendar, per-slot availability, party size, occasion, validated details, animated confirmation |
 | `/checkout` | Address → payment (UPI / card / COD) → confirmation, with live order summary |
 | `/admin` | Revenue, orders, covers, category mix, top sellers, inventory, customers, notifications |

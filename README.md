@@ -100,4 +100,4 @@ Keyboard: `⌘K` / `Ctrl+K` or `/` opens the command palette, `C` opens the cart
 
 ## Images
 
-Menu, gallery and portrait photography is hot-linked from Unsplash's CDN. These URLs could not be verified from the sandbox this was built in (its network policy blocks `images.unsplash.com`), so if any individual photo 404s, `SmartImage` degrades to its gradient — swap the ID in `lib/data/menu.ts` or `lib/data/content.ts`. For production, download and self-host them instead of hot-linking.
+Menu, gallery and portrait photography is hot-linked from Unsplash's CDN. These URLs could not be verified from the sandbox this was built in (its network policy blocks `images.unsplash.com`), so if any individual photo 404s, `SmartImage` degrades to its gradient — swap the ID in `lib/data/menu.ts` or `lib/data/content.ts` . For production, download and self-host them instead of hot-linking.

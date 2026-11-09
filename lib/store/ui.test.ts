@@ -190,3 +190,65 @@ describe("the fly-to-cart animation", () => {
     expect(state().cartPulse).toBe(pulses);
   });
 });
+
+/* ---------------------------------------------------------------- theme -- */
+
+describe("the theme", () => {
+  /**
+   * The only part of this store that writes outside itself: a class on <html>
+   * for the stylesheet, and a localStorage key the pre-paint script in
+   * layout.tsx reads back. Both have to happen, and neither may throw —
+   * private browsing refuses the write, and an exception here would take the
+   * whole toggle with it.
+   */
+  afterEach(() => {
+    document.documentElement.classList.remove("light");
+    localStorage.clear();
+  });
+
+  it("puts the class the stylesheet reads on the document", () => {
+    state().setTheme("light");
+    expect(document.documentElement.classList.contains("light")).toBe(true);
+  });
+
+  it("takes it off again", () => {
+    state().setTheme("light");
+    state().setTheme("dark");
+    expect(document.documentElement.classList.contains("light")).toBe(false);
+  });
+
+  it("stores it under the key the pre-paint script reads", () => {
+    // layout.tsx reads "noir-theme" before first paint to avoid a light-mode
+    // flash. A different key here would mean the flash came back, silently.
+    state().setTheme("light");
+    expect(localStorage.getItem("noir-theme")).toBe("light");
+  });
+
+  it("stores dark as well, so a switch back survives a reload", () => {
+    state().setTheme("light");
+    state().setTheme("dark");
+    expect(localStorage.getItem("noir-theme")).toBe("dark");
+  });
+
+  it("the store and the document always agree", () => {
+    for (const theme of ["light", "dark", "light"] as const) {
+      state().setTheme(theme);
+      expect(state().theme).toBe(theme);
+      expect(document.documentElement.classList.contains("light")).toBe(theme === "light");
+    }
+  });
+
+  it("still switches when storage refuses the write", () => {
+    // Private browsing throws on setItem. The theme just does not persist;
+    // it must not take the toggle down with it.
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+
+    expect(() => state().setTheme("light")).not.toThrow();
+    expect(state().theme).toBe("light");
+    expect(document.documentElement.classList.contains("light")).toBe(true);
+
+    setItem.mockRestore();
+  });
+});

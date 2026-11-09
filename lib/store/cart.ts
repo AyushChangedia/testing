@@ -87,6 +87,14 @@ export const useCart = create<CartState>()(
           // of zero, which would show in the cart as an item you cannot buy.
           if (wanted === 0) return { lines: s.lines };
 
+          // An id that is not on the menu priced at nothing and sat in the
+          // cart as a blank row costing ₹0 — a stale link, a renamed item or
+          // a typo in a card's props all produced one, and nothing anywhere
+          // said so. unitPrice still answers 0 for an unknown id, because a
+          // line already saved in localStorage may name an item since
+          // withdrawn and the cart has to render it rather than throw.
+          if (!getItem(id)) return { lines: s.lines };
+
           const key = lineKey({ id, size });
           const existing = s.lines.find((l) => lineKey(l) === key);
           if (existing) {

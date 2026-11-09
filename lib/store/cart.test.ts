@@ -241,3 +241,48 @@ describe("quantities that are not quantities", () => {
     }
   });
 });
+
+describe("items that are not on the menu", () => {
+  /**
+   * An unknown id priced at nothing and sat in the cart as a blank row
+   * costing ₹0. A stale link, a renamed item or a typo in a card's props all
+   * produced one, and nothing anywhere said so — the row was simply there,
+   * for free, through checkout.
+   */
+  it("refuses an id the menu does not have", () => {
+    state().add("not-a-drink", "M", 1);
+    expect(state().lines).toEqual([]);
+  });
+
+  it("refuses an empty id", () => {
+    for (const bad of ["", " ", "C01", "c01 "]) {
+      reset();
+      state().add(bad, "M", 1);
+      expect(state().lines, JSON.stringify(bad)).toEqual([]);
+    }
+  });
+
+  it("leaves a real cart alone when a bad id arrives", () => {
+    state().add("c01", "M", 2);
+    state().add("ghost", "M", 3);
+    expect(state().lines).toHaveLength(1);
+    expect(state().lines[0].id).toBe("c01");
+  });
+
+  it("the subtotal never gains a free row", () => {
+    state().add("ghost", "L", 5);
+    expect(selectSubtotal(state())).toBe(0);
+    expect(selectCount(state())).toBe(0);
+  });
+
+  it("a real item still goes in", () => {
+    state().add("c01", "L", 2);
+    expect(state().lines[0]).toEqual({ id: "c01", size: "L", qty: 2 });
+  });
+
+  it("unitPrice still answers for an unknown id rather than throwing", () => {
+    // A line already saved in localStorage may name an item since withdrawn,
+    // and the cart has to render it rather than crash on it.
+    expect(unitPrice("withdrawn", "M")).toBe(0);
+  });
+});

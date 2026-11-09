@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { lineKey, selectCount, unitPrice, useCart } from "@/lib/store/cart";
+import { MAX_QTY, lineKey, selectCount, selectSubtotal, unitPrice, useCart } from "@/lib/store/cart";
 
 /**
  * c01 is ₹340 and c02 is ₹420 in the menu data. Sizes multiply by
@@ -164,5 +164,200 @@ describe("markViewed", () => {
     for (let i = 1; i <= 12; i++) state().markViewed(`c${String(i).padStart(2, "0")}`);
     expect(state().recentlyViewed).toHaveLength(8);
     expect(state().recentlyViewed[0]).toBe("c12");
+  });
+});
+
+
+describe("quantities that are not quantities", () => {
+  /**
+   * add() put whatever it was given straight onto a line. A negative quantity
+   * made a negative subtotal, and a negative subtotal made a negative total —
+   * an order the checkout would have taken without complaint.
+   */
+  it("refuses a negative quantity rather than crediting the cart", () => {
+    state().add("c01", "M", -5);
+    expect(state().lines).toEqual([]);
+    expect(selectSubtotal(state())).toBe(0);
+  });
+
+  it("does not let a negative quantity eat a line that is already there", () => {
+    state().add("c01", "M", 2);
+    state().add("c01", "M", -10);
+    expect(state().lines[0].qty).toBe(2);
+    expect(selectSubtotal(state())).toBeGreaterThan(0);
+  });
+
+  it("refuses a quantity of zero rather than adding a line you cannot buy", () => {
+    state().add("c01", "M", 0);
+    expect(state().lines).toEqual([]);
+  });
+
+  it("rounds a fraction down to whole cups", () => {
+    // The worst of the three, because it looked right: 1.5 lattes, priced as
+    // 1.5 lattes, and displayed as "1.5".
+    state().add("c01", "M", 1.5);
+    expect(state().lines[0].qty).toBe(1);
+  });
+
+  it("refuses NaN and Infinity", () => {
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      reset();
+      state().add("c01", "M", bad);
+      expect(state().lines, String(bad)).toEqual([]);
+    }
+  });
+
+  it("still caps a merged line at the maximum", () => {
+    state().add("c01", "M", 90);
+    state().add("c01", "M", 90);
+    expect(state().lines[0].qty).toBe(MAX_QTY);
+  });
+
+  it("caps a single add at the maximum too", () => {
+    state().add("c01", "M", 5000);
+    expect(state().lines[0].qty).toBe(MAX_QTY);
+  });
+
+  it("setQty refuses a fraction and keeps the line whole", () => {
+    state().add("c01", "M", 2);
+    state().setQty(lineKey({ id: "c01", size: "M" }), 3.9);
+    expect(state().lines[0].qty).toBe(3);
+  });
+
+  it("setQty removes the line for anything that is not a quantity", () => {
+    for (const bad of [0, -3, NaN, Infinity]) {
+      reset();
+      state().add("c01", "M", 2);
+      state().setQty(lineKey({ id: "c01", size: "M" }), bad);
+      expect(state().lines, String(bad)).toEqual([]);
+    }
+  });
+
+  it("the count is never negative, whatever it is given", () => {
+    for (const bad of [-5, 0, NaN, 1.4]) {
+      reset();
+      state().add("c01", "M", bad);
+      expect(selectCount(state()), String(bad)).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe("items that are not on the menu", () => {
+  /**
+   * An unknown id priced at nothing and sat in the cart as a blank row
+   * costing ₹0. A stale link, a renamed item or a typo in a card's props all
+   * produced one, and nothing anywhere said so — the row was simply there,
+   * for free, through checkout.
+   */
+  it("refuses an id the menu does not have", () => {
+    state().add("not-a-drink", "M", 1);
+    expect(state().lines).toEqual([]);
+  });
+
+  it("refuses an empty id", () => {
+    for (const bad of ["", " ", "C01", "c01 "]) {
+      reset();
+      state().add(bad, "M", 1);
+      expect(state().lines, JSON.stringify(bad)).toEqual([]);
+    }
+  });
+
+  it("leaves a real cart alone when a bad id arrives", () => {
+    state().add("c01", "M", 2);
+    state().add("ghost", "M", 3);
+    expect(state().lines).toHaveLength(1);
+    expect(state().lines[0].id).toBe("c01");
+  });
+
+  it("the subtotal never gains a free row", () => {
+    state().add("ghost", "L", 5);
+    expect(selectSubtotal(state())).toBe(0);
+    expect(selectCount(state())).toBe(0);
+  });
+
+  it("a real item still goes in", () => {
+    state().add("c01", "L", 2);
+    expect(state().lines[0]).toEqual({ id: "c01", size: "L", qty: 2 });
+  });
+
+  it("unitPrice still answers for an unknown id rather than throwing", () => {
+    // A line already saved in localStorage may name an item since withdrawn,
+    // and the cart has to render it rather than crash on it.
+    expect(unitPrice("withdrawn", "M")).toBe(0);
+  });
+});
+
+describe("a coupon the cart stops qualifying for", () => {
+  /**
+   * Coupons were checked once, when applied, and never again. Take ₹900 of
+   * coffee, enter NOIR20, remove a cup: the discount quietly became 0 while
+   * the chip still read "NOIR20 applied". The badge said one thing, the total
+   * said another, and nothing in between explained the ₹180 that moved.
+   */
+  it("is dropped when a line is removed", () => {
+    state().add("c01", "M", 3); // 1245, over NOIR20's 800
+    expect(state().applyCoupon("NOIR20")).toBe(true);
+
+    state().remove(lineKey({ id: "c01", size: "M" }));
+    expect(state().coupon).toBeNull();
+  });
+
+  it("is dropped when the quantity falls", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+
+    state().setQty(lineKey({ id: "c01", size: "M" }), 1);
+    expect(state().coupon).toBeNull();
+  });
+
+  it("says what it would take to earn it back", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+    state().setQty(lineKey({ id: "c01", size: "M" }), 1);
+
+    expect(state().couponError).toContain("NOIR20");
+    expect(state().couponError).toContain("800");
+  });
+
+  it("says so plainly when the cart is emptied", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+    state().setQty(lineKey({ id: "c01", size: "M" }), 0);
+
+    expect(state().coupon).toBeNull();
+    expect(state().couponError).toMatch(/empty/i);
+  });
+
+  it("stays while the cart still qualifies", () => {
+    state().add("c01", "M", 3); // 1245
+    state().applyCoupon("NOIR20");
+
+    state().setQty(lineKey({ id: "c01", size: "M" }), 2); // 830, still over 800
+    expect(state().coupon?.code).toBe("NOIR20");
+  });
+
+  it("a coupon with no minimum is never dropped for being too small", () => {
+    state().add("c01", "S", 1);
+    expect(state().applyCoupon("GOLDCLUB")).toBe(true);
+
+    state().setQty(lineKey({ id: "c01", size: "S" }), 1);
+    expect(state().coupon?.code).toBe("GOLDCLUB");
+  });
+
+  it("adding more never drops a coupon", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+
+    state().add("c02", "L", 1);
+    expect(state().coupon?.code).toBe("NOIR20");
+  });
+
+  it("an empty cart has no coupon to carry", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+
+    state().clear();
+    expect(state().coupon).toBeNull();
+    expect(state().couponError).toBeNull();
   });
 });

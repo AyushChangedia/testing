@@ -37,6 +37,58 @@ interface CartState {
   clearCompare: () => void;
 }
 
+/** The most of one line anybody can order. */
+export const MAX_QTY = 99;
+
+/** Hold a quantity between one and the cap. */
+const clampQty = (qty: number) => Math.max(1, Math.min(MAX_QTY, Math.floor(qty)));
+
+/**
+ * What a quantity actually means, before it reaches a line.
+ *
+ * Returns 0 for anything that is not a real quantity, and the caller treats
+ * that as "add nothing" or "remove the line".
+ *
+ * add() used to put whatever it was given straight onto a line: a negative
+ * quantity made a negative subtotal, and a negative subtotal made a negative
+ * total — an order the checkout would have been happy to take. A fraction was
+ * worse, because it looked right: 1.5 lattes priced as 1.5 lattes, rounded
+ * nowhere, and displayed as "1.5".
+ */
+const normaliseQty = (qty: number) => {
+  if (!Number.isFinite(qty) || qty <= 0) return 0;
+  return clampQty(qty);
+};
+
+/**
+ * Drop a coupon the cart has stopped qualifying for, and say why.
+ *
+ * Coupons were checked once, when applied, and never again. Take ₹900 of
+ * coffee, enter NOIR20, then remove a cup: selectDiscount quietly returns 0
+ * because the subtotal is under the minimum, while the chip still reads
+ * "NOIR20 applied". The discount is gone, the badge says it is not, and
+ * nothing in between explains the ₹180 that moved.
+ *
+ * Removing it outright rather than leaving it inert: a coupon that is applied
+ * and doing nothing is the state that confused the customer in the first
+ * place. The message says what it would take to earn it back.
+ */
+function withValidCoupon<T extends Pick<CartState, "lines" | "coupon" | "couponError">>(next: T) {
+  if (!next.coupon) return next;
+
+  const sub = selectSubtotal(next);
+  if (sub >= next.coupon.minSubtotal) return next;
+
+  return {
+    ...next,
+    coupon: null,
+    couponError:
+      sub === 0
+        ? `${next.coupon.code} removed — your cart is empty.`
+        : `${next.coupon.code} needs ₹${next.coupon.minSubtotal} — it has been removed.`,
+  };
+}
+
 /** Lines are keyed by item + size so the same drink in two sizes stays separate. */
 export const lineKey = (l: Pick<CartLine, "id" | "size">) => `${l.id}__${l.size}`;
 
@@ -59,27 +111,45 @@ export const useCart = create<CartState>()(
 
       add: (id, size = "M", qty = 1) =>
         set((s) => {
+          const wanted = normaliseQty(qty);
+          // Nothing to add. Returning the lines untouched rather than a line
+          // of zero, which would show in the cart as an item you cannot buy.
+          if (wanted === 0) return { lines: s.lines };
+
+          // An id that is not on the menu priced at nothing and sat in the
+          // cart as a blank row costing ₹0 — a stale link, a renamed item or
+          // a typo in a card's props all produced one, and nothing anywhere
+          // said so. unitPrice still answers 0 for an unknown id, because a
+          // line already saved in localStorage may name an item since
+          // withdrawn and the cart has to render it rather than throw.
+          if (!getItem(id)) return { lines: s.lines };
+
           const key = lineKey({ id, size });
           const existing = s.lines.find((l) => lineKey(l) === key);
           if (existing) {
             return {
               lines: s.lines.map((l) =>
-                lineKey(l) === key ? { ...l, qty: Math.min(99, l.qty + qty) } : l,
+                lineKey(l) === key ? { ...l, qty: clampQty(l.qty + wanted) } : l,
               ),
             };
           }
-          return { lines: [...s.lines, { id, size, qty }] };
+          return { lines: [...s.lines, { id, size, qty: wanted }] };
         }),
 
-      remove: (key) => set((s) => ({ lines: s.lines.filter((l) => lineKey(l) !== key) })),
+      remove: (key) =>
+        set((s) => withValidCoupon({ ...s, lines: s.lines.filter((l) => lineKey(l) !== key) })),
 
       setQty: (key, qty) =>
-        set((s) => ({
-          lines:
-            qty <= 0
-              ? s.lines.filter((l) => lineKey(l) !== key)
-              : s.lines.map((l) => (lineKey(l) === key ? { ...l, qty: Math.min(99, qty) } : l)),
-        })),
+        set((s) => {
+          const wanted = normaliseQty(qty);
+          return withValidCoupon({
+            ...s,
+            lines:
+              wanted === 0
+                ? s.lines.filter((l) => lineKey(l) !== key)
+                : s.lines.map((l) => (lineKey(l) === key ? { ...l, qty: wanted } : l)),
+          });
+        }),
 
       clear: () => set({ lines: [], coupon: null, couponError: null }),
 

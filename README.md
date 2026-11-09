@@ -38,6 +38,30 @@ request — nothing is proxied, resized, or re-encoded.
 To host on Vercel instead, import the repo and deploy with no configuration; the
 `STATIC_EXPORT` path simply goes unused and image optimisation switches back on.
 
+## Tests
+
+```bash
+npm test          # 140 unit tests, vitest, no browser
+npm run typecheck
+```
+
+What is covered is the part with no visible failure mode: the two stores and
+the pure helpers. A broken component throws or renders obviously wrong; a cart
+that quietly accepts a quantity of -5 gives somebody a negative total, and a
+coupon that silently stops applying while its badge still says "applied"
+leaves a customer looking at a price nobody explained.
+
+Both of those were real, and so were the three alongside them — an item id
+that is not on the menu sitting in the cart as a free row, a fly-to-cart
+animation keyed on `Date.now()` that never played on a double-click because
+React saw the same key twice, and a toast whose default tone was overwritten
+by its own `tone: undefined`.
+
+The stores are plain zustand, so the tests call the actions directly and read
+the state back. No DOM, no rendering, no browser — except the theme, which is
+the one place the store writes outside itself, and gets a test for the
+localStorage key `app/layout.tsx` reads back before first paint.
+
 ## Stack
 
 Next.js 16 (App Router, Turbopack) · React 19 · TypeScript (strict) · Tailwind CSS v4 · Framer Motion · GSAP + ScrollTrigger · Three.js via React Three Fiber + drei · Lenis · Zustand · Radix primitives · cmdk · Recharts · Lucide.

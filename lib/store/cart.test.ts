@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { lineKey, selectCount, unitPrice, useCart } from "@/lib/store/cart";
+import { MAX_QTY, lineKey, selectCount, selectSubtotal, unitPrice, useCart } from "@/lib/store/cart";
 
 /**
  * c01 is ₹340 and c02 is ₹420 in the menu data. Sizes multiply by
@@ -164,5 +164,80 @@ describe("markViewed", () => {
     for (let i = 1; i <= 12; i++) state().markViewed(`c${String(i).padStart(2, "0")}`);
     expect(state().recentlyViewed).toHaveLength(8);
     expect(state().recentlyViewed[0]).toBe("c12");
+  });
+});
+
+
+describe("quantities that are not quantities", () => {
+  /**
+   * add() put whatever it was given straight onto a line. A negative quantity
+   * made a negative subtotal, and a negative subtotal made a negative total —
+   * an order the checkout would have taken without complaint.
+   */
+  it("refuses a negative quantity rather than crediting the cart", () => {
+    state().add("c01", "M", -5);
+    expect(state().lines).toEqual([]);
+    expect(selectSubtotal(state())).toBe(0);
+  });
+
+  it("does not let a negative quantity eat a line that is already there", () => {
+    state().add("c01", "M", 2);
+    state().add("c01", "M", -10);
+    expect(state().lines[0].qty).toBe(2);
+    expect(selectSubtotal(state())).toBeGreaterThan(0);
+  });
+
+  it("refuses a quantity of zero rather than adding a line you cannot buy", () => {
+    state().add("c01", "M", 0);
+    expect(state().lines).toEqual([]);
+  });
+
+  it("rounds a fraction down to whole cups", () => {
+    // The worst of the three, because it looked right: 1.5 lattes, priced as
+    // 1.5 lattes, and displayed as "1.5".
+    state().add("c01", "M", 1.5);
+    expect(state().lines[0].qty).toBe(1);
+  });
+
+  it("refuses NaN and Infinity", () => {
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      reset();
+      state().add("c01", "M", bad);
+      expect(state().lines, String(bad)).toEqual([]);
+    }
+  });
+
+  it("still caps a merged line at the maximum", () => {
+    state().add("c01", "M", 90);
+    state().add("c01", "M", 90);
+    expect(state().lines[0].qty).toBe(MAX_QTY);
+  });
+
+  it("caps a single add at the maximum too", () => {
+    state().add("c01", "M", 5000);
+    expect(state().lines[0].qty).toBe(MAX_QTY);
+  });
+
+  it("setQty refuses a fraction and keeps the line whole", () => {
+    state().add("c01", "M", 2);
+    state().setQty(lineKey({ id: "c01", size: "M" }), 3.9);
+    expect(state().lines[0].qty).toBe(3);
+  });
+
+  it("setQty removes the line for anything that is not a quantity", () => {
+    for (const bad of [0, -3, NaN, Infinity]) {
+      reset();
+      state().add("c01", "M", 2);
+      state().setQty(lineKey({ id: "c01", size: "M" }), bad);
+      expect(state().lines, String(bad)).toEqual([]);
+    }
+  });
+
+  it("the count is never negative, whatever it is given", () => {
+    for (const bad of [-5, 0, NaN, 1.4]) {
+      reset();
+      state().add("c01", "M", bad);
+      expect(selectCount(state()), String(bad)).toBeGreaterThanOrEqual(0);
+    }
   });
 });

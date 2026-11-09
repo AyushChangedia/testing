@@ -37,6 +37,29 @@ interface CartState {
   clearCompare: () => void;
 }
 
+/** The most of one line anybody can order. */
+export const MAX_QTY = 99;
+
+/** Hold a quantity between one and the cap. */
+const clampQty = (qty: number) => Math.max(1, Math.min(MAX_QTY, Math.floor(qty)));
+
+/**
+ * What a quantity actually means, before it reaches a line.
+ *
+ * Returns 0 for anything that is not a real quantity, and the caller treats
+ * that as "add nothing" or "remove the line".
+ *
+ * add() used to put whatever it was given straight onto a line: a negative
+ * quantity made a negative subtotal, and a negative subtotal made a negative
+ * total — an order the checkout would have been happy to take. A fraction was
+ * worse, because it looked right: 1.5 lattes priced as 1.5 lattes, rounded
+ * nowhere, and displayed as "1.5".
+ */
+const normaliseQty = (qty: number) => {
+  if (!Number.isFinite(qty) || qty <= 0) return 0;
+  return clampQty(qty);
+};
+
 /** Lines are keyed by item + size so the same drink in two sizes stays separate. */
 export const lineKey = (l: Pick<CartLine, "id" | "size">) => `${l.id}__${l.size}`;
 
@@ -59,27 +82,35 @@ export const useCart = create<CartState>()(
 
       add: (id, size = "M", qty = 1) =>
         set((s) => {
+          const wanted = normaliseQty(qty);
+          // Nothing to add. Returning the lines untouched rather than a line
+          // of zero, which would show in the cart as an item you cannot buy.
+          if (wanted === 0) return { lines: s.lines };
+
           const key = lineKey({ id, size });
           const existing = s.lines.find((l) => lineKey(l) === key);
           if (existing) {
             return {
               lines: s.lines.map((l) =>
-                lineKey(l) === key ? { ...l, qty: Math.min(99, l.qty + qty) } : l,
+                lineKey(l) === key ? { ...l, qty: clampQty(l.qty + wanted) } : l,
               ),
             };
           }
-          return { lines: [...s.lines, { id, size, qty }] };
+          return { lines: [...s.lines, { id, size, qty: wanted }] };
         }),
 
       remove: (key) => set((s) => ({ lines: s.lines.filter((l) => lineKey(l) !== key) })),
 
       setQty: (key, qty) =>
-        set((s) => ({
-          lines:
-            qty <= 0
-              ? s.lines.filter((l) => lineKey(l) !== key)
-              : s.lines.map((l) => (lineKey(l) === key ? { ...l, qty: Math.min(99, qty) } : l)),
-        })),
+        set((s) => {
+          const wanted = normaliseQty(qty);
+          return {
+            lines:
+              wanted === 0
+                ? s.lines.filter((l) => lineKey(l) !== key)
+                : s.lines.map((l) => (lineKey(l) === key ? { ...l, qty: wanted } : l)),
+          };
+        }),
 
       clear: () => set({ lines: [], coupon: null, couponError: null }),
 

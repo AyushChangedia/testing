@@ -286,3 +286,78 @@ describe("items that are not on the menu", () => {
     expect(unitPrice("withdrawn", "M")).toBe(0);
   });
 });
+
+describe("a coupon the cart stops qualifying for", () => {
+  /**
+   * Coupons were checked once, when applied, and never again. Take ₹900 of
+   * coffee, enter NOIR20, remove a cup: the discount quietly became 0 while
+   * the chip still read "NOIR20 applied". The badge said one thing, the total
+   * said another, and nothing in between explained the ₹180 that moved.
+   */
+  it("is dropped when a line is removed", () => {
+    state().add("c01", "M", 3); // 1245, over NOIR20's 800
+    expect(state().applyCoupon("NOIR20")).toBe(true);
+
+    state().remove(lineKey({ id: "c01", size: "M" }));
+    expect(state().coupon).toBeNull();
+  });
+
+  it("is dropped when the quantity falls", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+
+    state().setQty(lineKey({ id: "c01", size: "M" }), 1);
+    expect(state().coupon).toBeNull();
+  });
+
+  it("says what it would take to earn it back", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+    state().setQty(lineKey({ id: "c01", size: "M" }), 1);
+
+    expect(state().couponError).toContain("NOIR20");
+    expect(state().couponError).toContain("800");
+  });
+
+  it("says so plainly when the cart is emptied", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+    state().setQty(lineKey({ id: "c01", size: "M" }), 0);
+
+    expect(state().coupon).toBeNull();
+    expect(state().couponError).toMatch(/empty/i);
+  });
+
+  it("stays while the cart still qualifies", () => {
+    state().add("c01", "M", 3); // 1245
+    state().applyCoupon("NOIR20");
+
+    state().setQty(lineKey({ id: "c01", size: "M" }), 2); // 830, still over 800
+    expect(state().coupon?.code).toBe("NOIR20");
+  });
+
+  it("a coupon with no minimum is never dropped for being too small", () => {
+    state().add("c01", "S", 1);
+    expect(state().applyCoupon("GOLDCLUB")).toBe(true);
+
+    state().setQty(lineKey({ id: "c01", size: "S" }), 1);
+    expect(state().coupon?.code).toBe("GOLDCLUB");
+  });
+
+  it("adding more never drops a coupon", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+
+    state().add("c02", "L", 1);
+    expect(state().coupon?.code).toBe("NOIR20");
+  });
+
+  it("an empty cart has no coupon to carry", () => {
+    state().add("c01", "M", 3);
+    state().applyCoupon("NOIR20");
+
+    state().clear();
+    expect(state().coupon).toBeNull();
+    expect(state().couponError).toBeNull();
+  });
+});

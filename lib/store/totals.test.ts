@@ -107,15 +107,25 @@ describe("selectDiscount", () => {
     expect(selectDiscount(state())).toBe(150);
   });
 
-  it("lapses if the cart later drops below the coupon minimum", () => {
-    // The coupon stays attached but stops discounting, so removing items
-    // cannot leave the order cheaper than its own rules allow.
+  it("is dropped if the cart later falls below the coupon minimum", () => {
+    // It used to stay attached and silently stop discounting, so the chip
+    // read "NOIR20 applied" over an order that was no longer getting it.
     state().add("c01", "M", 2);
     state().applyCoupon("NOIR20");
     expect(selectDiscount(state())).toBe(166);
 
     state().setQty("c01__M", 1); // back down to 415
-    expect(state().coupon?.code).toBe("NOIR20");
+    expect(state().coupon).toBeNull();
+    expect(state().couponError).toMatch(/NOIR20/);
+    expect(selectDiscount(state())).toBe(0);
+  });
+
+  it("never discounts below the minimum, coupon attached or not", () => {
+    // The safety property the old behaviour was protecting: removing items
+    // cannot leave an order cheaper than the coupon's own rules allow.
+    state().add("c01", "M", 2);
+    state().applyCoupon("NOIR20");
+    state().setQty("c01__M", 1);
     expect(selectDiscount(state())).toBe(0);
   });
 

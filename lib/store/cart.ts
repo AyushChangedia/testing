@@ -60,6 +60,35 @@ const normaliseQty = (qty: number) => {
   return clampQty(qty);
 };
 
+/**
+ * Drop a coupon the cart has stopped qualifying for, and say why.
+ *
+ * Coupons were checked once, when applied, and never again. Take ₹900 of
+ * coffee, enter NOIR20, then remove a cup: selectDiscount quietly returns 0
+ * because the subtotal is under the minimum, while the chip still reads
+ * "NOIR20 applied". The discount is gone, the badge says it is not, and
+ * nothing in between explains the ₹180 that moved.
+ *
+ * Removing it outright rather than leaving it inert: a coupon that is applied
+ * and doing nothing is the state that confused the customer in the first
+ * place. The message says what it would take to earn it back.
+ */
+function withValidCoupon<T extends Pick<CartState, "lines" | "coupon" | "couponError">>(next: T) {
+  if (!next.coupon) return next;
+
+  const sub = selectSubtotal(next);
+  if (sub >= next.coupon.minSubtotal) return next;
+
+  return {
+    ...next,
+    coupon: null,
+    couponError:
+      sub === 0
+        ? `${next.coupon.code} removed — your cart is empty.`
+        : `${next.coupon.code} needs ₹${next.coupon.minSubtotal} — it has been removed.`,
+  };
+}
+
 /** Lines are keyed by item + size so the same drink in two sizes stays separate. */
 export const lineKey = (l: Pick<CartLine, "id" | "size">) => `${l.id}__${l.size}`;
 
@@ -107,17 +136,19 @@ export const useCart = create<CartState>()(
           return { lines: [...s.lines, { id, size, qty: wanted }] };
         }),
 
-      remove: (key) => set((s) => ({ lines: s.lines.filter((l) => lineKey(l) !== key) })),
+      remove: (key) =>
+        set((s) => withValidCoupon({ ...s, lines: s.lines.filter((l) => lineKey(l) !== key) })),
 
       setQty: (key, qty) =>
         set((s) => {
           const wanted = normaliseQty(qty);
-          return {
+          return withValidCoupon({
+            ...s,
             lines:
               wanted === 0
                 ? s.lines.filter((l) => lineKey(l) !== key)
                 : s.lines.map((l) => (lineKey(l) === key ? { ...l, qty: wanted } : l)),
-          };
+          });
         }),
 
       clear: () => set({ lines: [], coupon: null, couponError: null }),
